@@ -7,45 +7,21 @@ pipeline {
         stage('Build') {
             agent {
                 docker {
-                    image 'python:3.11.5-alpine3.18'
+                    image 'valecz/apivcz:1.1'
+                    args '-p 6001:6001' // Mapear el puerto 6001 del contenedor al puerto 6001 del host
                 }
             }
             steps {
-                sh 'python -m py_compile sources/add2vals.py sources/calc.py'
-                stash(name: 'compiled-results', includes: 'sources/*.py*')
-            }
-        }
-        stage('Test') {
-            agent {
-                docker {
-                    image 'qnib/pytest'
-                }
-            }
-            steps {
-                sh 'py.test --junit-xml test-reports/results.xml sources/test_calc.py'
-            }
-            post {
-                always {
-                    junit 'test-reports/results.xml'
-                }
-            }
-        }
-        stage('Deliver') { 
-            agent any
-            environment { 
-                VOLUME = '$(pwd)/sources:/src'
-                IMAGE = 'cdrx/pyinstaller-linux:python2'
-            }
-            steps {
-                dir(path: env.BUILD_ID) { 
-                    unstash(name: 'compiled-results') 
-                    sh "docker run --rm -v ${VOLUME} ${IMAGE} 'pyinstaller -F add2vals.py'" 
-                }
-            }
-            post {
-                success {
-                    archiveArtifacts "${env.BUILD_ID}/sources/dist/add2vals" 
-                    sh "docker run --rm -v ${VOLUME} ${IMAGE} 'rm -rf build dist'"
+                script {
+                    // Agrega tus comandos de Flask aquí
+                    sh 'ls -a'
+                   // sh 'rm -r migrations'
+                   // sh 'rm -r instance'
+                    //sh 'source env/bin/activate'
+                    sh 'flask db init'
+                    sh 'flask db migrate -m "initial_DB"'
+                    sh 'flask db upgrade'
+                    sh 'flask run --host=0.0.0.0 --port=6001'
                 }
             }
         }
